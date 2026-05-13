@@ -157,18 +157,6 @@ static absl::StatusOr<std::unique_ptr<Command>> Convert(
                                              thunk.buffers());
 }
 
-static absl::StatusOr<std::unique_ptr<Command>> Convert(
-    const RecvThunk& thunk) {
-  return std::make_unique<RecvCmd>(thunk.config(), thunk.p2p_config(),
-                                   thunk.buffer());
-}
-
-static absl::StatusOr<std::unique_ptr<Command>> Convert(
-    const SendThunk& thunk) {
-  return std::make_unique<SendCmd>(thunk.config(), thunk.p2p_config(),
-                                   thunk.buffer());
-}
-
 //===----------------------------------------------------------------------===//
 static absl::StatusOr<std::unique_ptr<Command>> CopyMetadata(
     absl::StatusOr<std::unique_ptr<Command>> cmd, const Thunk& thunk) {
@@ -268,10 +256,14 @@ static absl::Status AppendCommands(ConversionContext& ctx,
       return append(Convert<CollectivePermuteThunk>(thunk));
     case Thunk::Kind::kRaggedAllToAll:
       return append(Convert<RaggedAllToAllThunk>(thunk));
+    // RecvThunk implements Command directly; append borrowed pointer.
     case Thunk::Kind::kRecv:
-      return append(Convert<RecvThunk>(thunk));
+      cmd_sequence.Append(static_cast<RecvThunk*>(&thunk));
+      return absl::OkStatus();
+    // SendThunk implements Command directly; append borrowed pointer.
     case Thunk::Kind::kSend:
-      return append(Convert<SendThunk>(thunk));
+      cmd_sequence.Append(static_cast<SendThunk*>(&thunk));
+      return absl::OkStatus();
     // These thunks implement Command directly; append borrowed pointers.
     // Note: kCopy also borrows DeviceToDeviceCopyThunk (see case above).
     case Thunk::Kind::kMemset32BitValue:

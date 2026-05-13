@@ -70,8 +70,6 @@ namespace xla::gpu {
   V(kCollectiveBroadcastCmd, "CollectiveBroadcastCmd")       \
   V(kCollectivePermuteCmd, "CollectivePermuteCmd")           \
   V(kRaggedAllToAllCmd, "RaggedAllToAllCmd")                 \
-  V(kRecvCmd, "RecvCmd")                                     \
-  V(kSendCmd, "SendCmd")                                     \
   V(kAsyncDone, "AsyncDone")                                 \
   V(kUnknownCmd, "UnknownCmd") \
   // clang-format on
