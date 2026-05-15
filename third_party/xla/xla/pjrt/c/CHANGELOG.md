@@ -1,5 +1,9 @@
 # PJRT C API changelog
 
+## 0.109
+
+*   Added PJRT_HloOutputCallbackInfo to PJRT_ExecuteOptions.
+
 ## 0.108
 
 *   Added use_major_to_minor_data_layout_for_callbacks to PJRT_ExecuteOptions.
