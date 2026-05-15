@@ -17,6 +17,7 @@ limitations under the License.
 
 #include <algorithm>
 #include <cstdint>
+#include <cstring>
 #include <memory>
 #include <optional>
 #include <string>
@@ -209,8 +210,7 @@ DynamicSliceThunk::DynamicSliceThunk(
   for (SliceDef& slice : slices_) {
     offsets_allocs_base_.push_back(offsets_allocs_size_);
     if (slice.sliced_shape.has_value()) {
-      offsets_allocs_size_ +=
-          slice.sliced_shape->dimensions().size() * sizeof(int64_t);
+      offsets_allocs_size_ += slice.sliced_shape->dimensions().size();
     }
   }
 }
@@ -261,10 +261,12 @@ absl::Status DynamicSliceThunk::Initialize(const InitializeParams& params) {
     return absl::OkStatus();
   }
 
-  VLOG(2) << "Allocate " << offsets_allocs_size_
+  VLOG(2) << "Allocate " << offsets_allocs_size_ * sizeof(int64_t)
           << " bytes for transferring offsets on executor: " << params.executor;
   ASSIGN_OR_RETURN(std::unique_ptr<se::MemoryAllocation> allocation,
-                   params.executor->HostMemoryAllocate(offsets_allocs_size_));
+                   params.executor->HostMemoryAllocate(offsets_allocs_size_ *
+                                                       sizeof(int64_t)));
+  memset(allocation->opaque(), 0, offsets_allocs_size_ * sizeof(int64_t));
   offsets_allocs_.emplace(params.executor, std::move(allocation));
 
   return absl::OkStatus();
@@ -415,11 +417,10 @@ absl::Status DynamicSliceThunk::ExecuteOnStream(const ExecuteParams& params) {
   RETURN_IF_ERROR(embedded_executor_.ExecuteOnStream(new_params));
 
   if (offset_as_function_of_indvar_metadata_.has_value()) {
-    Indvar(this) =
-        HloEvaluator()
-            .Evaluate(*offset_as_function_of_indvar_metadata_->indvar_update,
-                      {&Indvar(this)})
-            .value();
+    ASSIGN_OR_RETURN(Indvar(this),
+                     HloEvaluator().Evaluate(
+                         *offset_as_function_of_indvar_metadata_->indvar_update,
+                         {&Indvar(this)}));
     VLOG(2) << "Update Indvar = " << Indvar(this).ToString();
   }
 
