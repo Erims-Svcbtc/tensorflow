@@ -140,5 +140,45 @@ TEST(RequestCostTest, RecordStructuredMetrics) {
               ElementsAre("c"));
 }
 
+TEST(RequestCostTest, RecordStructuredCosts) {
+  RequestCost request_cost;
+
+  request_cost.RecordStructuredCosts({{"tpu_with_smear",
+                                       {.cost = absl::Milliseconds(10),
+                                        .cost_chip = absl::Milliseconds(5),
+                                        .cost_gxu = absl::Milliseconds(9)}}});
+  request_cost.RecordStructuredCosts({{"tpu_with_smear",
+                                       {.cost = absl::Milliseconds(20),
+                                        .cost_chip = absl::Milliseconds(10),
+                                        .cost_gxu = absl::Milliseconds(18)}},
+                                      {"tpu_no_smear",
+                                       {.cost = absl::Milliseconds(3),
+                                        .cost_chip = absl::Milliseconds(1),
+                                        .cost_gxu = absl::Milliseconds(2)}}});
+
+  auto costs = request_cost.GetStructuredCosts();
+  ASSERT_EQ(costs.size(), 2);
+
+  // tpu_with_smear should be summed.
+  EXPECT_EQ(costs["tpu_with_smear"].cost, absl::Milliseconds(30));
+  EXPECT_EQ(costs["tpu_with_smear"].cost_chip, absl::Milliseconds(15));
+  EXPECT_EQ(costs["tpu_with_smear"].cost_gxu, absl::Milliseconds(27));
+
+  EXPECT_EQ(costs["tpu_no_smear"].cost, absl::Milliseconds(3));
+  EXPECT_EQ(costs["tpu_no_smear"].cost_chip, absl::Milliseconds(1));
+  EXPECT_EQ(costs["tpu_no_smear"].cost_gxu, absl::Milliseconds(2));
+
+  request_cost.ScaleStructuredCosts(2);
+  costs = request_cost.GetStructuredCosts();
+
+  EXPECT_EQ(costs["tpu_with_smear"].cost, absl::Milliseconds(60));
+  EXPECT_EQ(costs["tpu_with_smear"].cost_chip, absl::Milliseconds(30));
+  EXPECT_EQ(costs["tpu_with_smear"].cost_gxu, absl::Milliseconds(54));
+
+  EXPECT_EQ(costs["tpu_no_smear"].cost, absl::Milliseconds(6));
+  EXPECT_EQ(costs["tpu_no_smear"].cost_chip, absl::Milliseconds(2));
+  EXPECT_EQ(costs["tpu_no_smear"].cost_gxu, absl::Milliseconds(4));
+}
+
 }  // namespace
 }  // namespace tensorflow
